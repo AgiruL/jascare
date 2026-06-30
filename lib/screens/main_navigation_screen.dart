@@ -1,0 +1,127 @@
+import 'package:flutter/material.dart';
+import 'campus_map_screen.dart';
+import 'incidents_screen.dart';
+import 'about_screen.dart';
+
+class CustomIncident {
+  final String id;
+  final String title;
+  final String description;
+  final double latitude;
+  final double longitude;
+  final String category; 
+  final String? imagePath; 
+  bool isActive;           
+
+  CustomIncident({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.latitude,
+    required this.longitude,
+    required this.category,
+    this.imagePath,
+    this.isActive = true,
+  });
+}
+
+class MainNavigationScreen extends StatefulWidget {
+  final String currentWeather;
+  final bool isFullscreen;
+  final ValueChanged<String> onWeatherChanged;
+  final VoidCallback onToggleFullscreen;
+
+  const MainNavigationScreen({
+    super.key,
+    required this.currentWeather,
+    required this.isFullscreen,
+    required this.onWeatherChanged,
+    required this.onToggleFullscreen,
+  });
+
+  @override
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+}
+
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  int _currentIndex = 0;
+
+  final List<CustomIncident> _globalIncidents = [
+    CustomIncident(
+      id: 'f1',
+      title: "Suspicious Activity",
+      description: "Near Block A layout lines",
+      latitude: 2.2145,
+      longitude: 102.4535,
+      category: "Crime",
+      isActive: true,
+    ),
+    CustomIncident(
+      id: 'f2',
+      title: "Broken Corridor Spotlight",
+      description: "Dim walkway infrastructure",
+      latitude: 2.2110,
+      longitude: 102.4520,
+      category: "Facility",
+      isActive: false, 
+    ),
+  ];
+
+  void _addIncident(CustomIncident incident) {
+    setState(() {
+      _globalIncidents.add(incident);
+    });
+  }
+
+  void _markAsSolved(String id) {
+    setState(() {
+      final incident = _globalIncidents.firstWhere((item) => item.id == id);
+      incident.isActive = false;
+    });
+  }
+
+  void _permanentlyDelete(String id) {
+    setState(() {
+      _globalIncidents.removeWhere((item) => item.id == id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.currentWeather == "rain" || widget.currentWeather == "night";
+    
+    final List<Widget> screens = [
+      CampusMapScreen(
+        currentWeather: widget.currentWeather,
+        isFullscreen: widget.isFullscreen,
+        onWeatherChanged: widget.onWeatherChanged,
+        onToggleFullscreen: widget.onToggleFullscreen,
+        incidentList: _globalIncidents,
+        onAddIncident: _addIncident,
+      ),
+      IncidentsScreen(
+        incidentList: _globalIncidents,
+        onSolve: _markAsSolved,
+        onDelete: _permanentlyDelete,
+        isDark: isDark,
+      ),
+      const AboutScreen(),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(index: _currentIndex, children: screens),
+      bottomNavigationBar: widget.isFullscreen 
+          ? null 
+          : NavigationBar(
+              selectedIndex: _currentIndex,
+              backgroundColor: isDark ? const Color(0xFF161625) : Colors.white,
+              onDestinationSelected: (index) => setState(() => _currentIndex = index),
+              destinations: const [
+                NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Map'),
+                NavigationDestination(icon: Icon(Icons.notifications_none), selectedIcon: Icon(Icons.notifications), label: 'Incidents'),
+                NavigationDestination(icon: Icon(Icons.info_outline), selectedIcon: Icon(Icons.info), label: 'About'),
+              ],
+            ),
+    );
+  }
+}
