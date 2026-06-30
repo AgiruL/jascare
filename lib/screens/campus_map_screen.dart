@@ -45,6 +45,7 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
   String _addressTextDisplay = "Locating device... GPS data auto-assigned";
   
   String _selectedCategory = "Crime"; 
+  bool _isMapLocationLayerReady = false; // Forcing middle dot drawing verification flag
 
   @override
   void initState() {
@@ -78,6 +79,16 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
         return;
       }
     }
+
+    if (permission == LocationPermission.deniedForever) {
+      setState(() => _addressTextDisplay = "Location permissions blocked in settings.");
+      return;
+    }
+
+    // Explicitly toggle state once permissions check out cleanly to activate native location canvas layers
+    setState(() {
+      _isMapLocationLayerReady = true;
+    });
 
     Position initialPos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
     _updateUserPositionState(initialPos);
@@ -326,18 +337,16 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 🗺️ The Map Container Base
+          // 🗺️ Map view widget frame base
           Positioned.fill(
             child: Opacity(
-              // Adding a fraction of transparency to allow weather canvas shaders to bind through 100% full screen
               opacity: isDark ? 0.88 : 1.0,
               child: GoogleMap(
                 initialCameraPosition: const CameraPosition(target: _perpustakaanJasin, zoom: 16.5),
                 markers: _buildMapMarkers(),
                 circles: _buildProximityCircles(), 
-                myLocationEnabled: true,
-                // 📍 Fix 1: Disabled native top-right icon to swap it into our custom bar layout
-                myLocationButtonEnabled: false, 
+                myLocationEnabled: _isMapLocationLayerReady, // Safe background rendering layer toggle logic
+                myLocationButtonEnabled: false, // Turned off native upper icon to hide duplication blocks
                 compassEnabled: false,
                 zoomControlsEnabled: false,
                 padding: const EdgeInsets.only(bottom: 125),
@@ -353,7 +362,7 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
             ),
           ),
           
-          // 🌌 Fix 2: Weather effects overlay layers forced to cover 100% space above the map layout context
+          // 🌌 Weather Layer forced to fit 100% full height screen space boundaries smoothly
           Positioned.fill(
             child: IgnorePointer(
               child: WeatherOverlay(condition: widget.currentWeather),
@@ -471,7 +480,6 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
               ),
             ),
             
-          // 🕹️ Bottom Controls and Buttons Layout Overlays
           Positioned(
             bottom: 16, left: 16, right: 16,
             child: Column(
@@ -507,7 +515,7 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                     ),
                     const SizedBox(width: 8),
                     
-                    // 📍 Fix 1: Customized Target GPS Tracking button nested safely into bottom bar elements row layout
+                    // 🕹️ Styled custom tracking target button safely inside bottom navigation row layout 
                     FloatingActionButton(
                       backgroundColor: const Color(0xFF6366F1),
                       foregroundColor: Colors.white,
