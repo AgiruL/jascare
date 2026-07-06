@@ -173,6 +173,7 @@ Widget build(BuildContext context) {
   // ✅ FIX: Pass the array reference directly instead of rebuilding new lists on every frame refresh tick
   final List<Widget> screens = [
     CampusMapScreen(
+      key: ValueKey(widget.isFullscreen),
       currentWeather: widget.currentWeather,
       isFullscreen: widget.isFullscreen,
       onWeatherChanged: widget.onWeatherChanged,
