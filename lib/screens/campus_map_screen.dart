@@ -7,6 +7,8 @@ import 'package:geolocator/geolocator.dart';
 import '../models/weather_data.dart';
 import '../widgets/weather_overlay.dart';
 import 'main_navigation_screen.dart';
+import 'dart:convert'; // Required for jsonEncode()
+import 'package:shared_preferences/shared_preferences.dart'; // Required for disk writes
 
 class CampusMapScreen extends StatefulWidget {
   final String currentWeather;
@@ -180,7 +182,8 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
     }
   }
 
-  void _submitIncidentForm() {
+  // 1. Added 'async' keyword so the app can wait for the storage to save
+  Future<void> _submitIncidentForm() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill in the incident title"), backgroundColor: Colors.red)
@@ -199,7 +202,36 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
       isActive: true,
     );
 
+    // 2. Save to local storage first before updating the UI
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Get the existing list of strings or start fresh
+      List<String> storedList = prefs.getStringList('local_incidents') ?? [];
+      
+      // Convert our new object into a raw JSON string map
+      // (Make sure your CustomIncident model has a toJson() method implemented!)
+      String jsonIncident = jsonEncode({
+        'id': newReport.id,
+        'title': newReport.title,
+        'description': newReport.description,
+        'latitude': newReport.latitude,
+        'longitude': newReport.longitude,
+        'category': newReport.category,
+        'imagePath': newReport.imagePath,
+        'isActive': newReport.isActive,
+      });
+      
+      // Add it to our local persistent list array and commit it to disk
+      storedList.add(jsonIncident);
+      await prefs.setStringList('local_incidents', storedList);
+    } catch (e) {
+      debugPrint("Failed to write persistence layer data: $e");
+    }
+
+    // 3. Send it to the temporary running RAM state list normally
     widget.onAddIncident(newReport);
+    
     _titleController.clear();
     _descController.clear();
     _attachedImage = null;

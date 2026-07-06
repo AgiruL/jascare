@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'campus_map_screen.dart';
 import 'incidents_screen.dart';
 import 'about_screen.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CustomIncident {
   final String id;
@@ -124,4 +126,47 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             ),
     );
   }
+
+@override
+  void initState() {
+    super.initState();
+    _loadPersistedIncidents(); // 👈 Load the data the moment this screen turns on!
+  }
+
+  Future<void> _loadPersistedIncidents() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> storedList = prefs.getStringList('local_incidents') ?? [];
+      
+      if (storedList.isNotEmpty) {
+        List<CustomIncident> loadedIncidents = [];
+        
+        for (String jsonStr in storedList) {
+          Map<String, dynamic> item = jsonDecode(jsonStr);
+          
+          // Map the raw JSON keys back into your CustomIncident object model
+          loadedIncidents.add(
+            CustomIncident(
+              id: item['id'],
+              title: item['title'],
+              description: item['description'],
+              latitude: item['latitude'],
+              longitude: item['longitude'],
+              category: item['category'],
+              imagePath: item['imagePath'],
+              isActive: item['isActive'] ?? true,
+            ),
+          );
+        }
+        
+        setState(() {
+          // Merge your freshly loaded disk data into your active screen state list
+          _globalIncidents.addAll(loadedIncidents); 
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading persisted data: $e");
+    }
+  }
+
 }
