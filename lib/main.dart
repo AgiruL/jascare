@@ -1,8 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'screens/main_navigation_screen.dart';
+import 'screens/login_screen.dart'; // ✅ Imported your new login screen view
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-void main() {
+void main() async {
+  // ✅ 1. Ensures native bindings are set up
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // ✅ 2. Initializes the Firebase app link
+  await Firebase.initializeApp();
+  
+  // 🔥 3. ADD THIS LINE RIGHT HERE TO BYPASS RECAPTCHA / SAFETYNET LOOPS FOR LOCAL TESTING
+  await FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
+  
   runApp(const JasCareApp());
 }
 
@@ -37,16 +48,24 @@ class _JasCareAppState extends State<JasCareApp> {
     final now = DateTime.now();
     final double timeAsDouble = now.hour + (now.minute / 60.0);
 
-    setState(() {
-      if ((timeAsDouble >= 7.0 && timeAsDouble < 7.5) || (timeAsDouble >= 19.0 && timeAsDouble < 19.5)) {
-        _currentWeather = "windy";
-      } else if (timeAsDouble >= 7.5 && timeAsDouble < 19.0) {
-        _currentWeather = "sunny";
-      } else {
-        _currentWeather = "night";
-      }
-    });
+    String newCondition;
+    if ((timeAsDouble >= 7.0 && timeAsDouble < 7.5) || (timeAsDouble >= 19.0 && timeAsDouble < 19.5)) {
+      newCondition = "windy";
+    } else if (timeAsDouble >= 7.5 && timeAsDouble < 19.0) {
+      newCondition = "sunny";
+    } else {
+      newCondition = "night";
+    }
+
+    // ✅ ONLY trigger setState if the weather actually shifts! Saves huge CPU performance.
+    if (_currentWeather != newCondition) {
+      setState(() {
+        _currentWeather = newCondition;
+      });
+    }
   }
+
+  
 
   void _changeWeather(String weather) {
     setState(() => _currentWeather = weather);
@@ -73,7 +92,8 @@ class _JasCareAppState extends State<JasCareApp> {
       title: 'JasCare',
       debugShowCheckedModeBanner: false,
       theme: _buildFigmaTheme(),
-      home: MainNavigationScreen(
+      // ✅ Enforces Login Screen first while passing down your persistent weather states!
+      home: LoginScreen(
         currentWeather: _currentWeather,
         isFullscreen: _isFullscreen,
         onWeatherChanged: _changeWeather,

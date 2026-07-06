@@ -93,12 +93,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Future<void> _saveAllIncidentsToDisk() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      List<String> jsonList = _globalIncidents
+      final List<String> jsonList = _globalIncidents
           .map((incident) => jsonEncode(incident.toMap()))
           .toList();
       await prefs.setStringList('local_incidents', jsonList);
     } catch (e) {
-      debugPrint("Failed to save data sync update: $e");
+      debugPrint("Failed to save data sync update safely: $e");
     }
   }
 
@@ -167,41 +167,44 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = widget.currentWeather == "rain" || widget.currentWeather == "night";
-    
-    final List<Widget> screens = [
-      CampusMapScreen(
-        currentWeather: widget.currentWeather,
-        isFullscreen: widget.isFullscreen,
-        onWeatherChanged: widget.onWeatherChanged,
-        onToggleFullscreen: widget.onToggleFullscreen,
-        incidentList: _globalIncidents,
-        onAddIncident: _addIncident,
-      ),
-      IncidentsScreen(
-        incidentList: _globalIncidents,
-        onSolve: _markAsSolved,
-        onDelete: _permanentlyDelete,
-        isDark: isDark,
-      ),
-      const AboutScreen(),
-    ];
+Widget build(BuildContext context) {
+  final isDark = widget.currentWeather == "rain" || widget.currentWeather == "night";
+  
+  // ✅ FIX: Pass the array reference directly instead of rebuilding new lists on every frame refresh tick
+  final List<Widget> screens = [
+    CampusMapScreen(
+      currentWeather: widget.currentWeather,
+      isFullscreen: widget.isFullscreen,
+      onWeatherChanged: widget.onWeatherChanged,
+      onToggleFullscreen: widget.onToggleFullscreen,
+      incidentList: _globalIncidents, 
+      onAddIncident: _addIncident,
+    ),
+    IncidentsScreen(
+      incidentList: _globalIncidents,
+      onSolve: _markAsSolved,
+      onDelete: _permanentlyDelete,
+      isDark: isDark,
+    ),
+    AboutScreen(
+      incidentList: _globalIncidents, 
+    ),
+  ];
 
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: screens),
-      bottomNavigationBar: widget.isFullscreen 
-          ? null 
-          : NavigationBar(
-              selectedIndex: _currentIndex,
-              backgroundColor: isDark ? const Color(0xFF161625) : Colors.white,
-              onDestinationSelected: (index) => setState(() => _currentIndex = index),
-              destinations: const [
-                NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Map'),
-                NavigationDestination(icon: Icon(Icons.notifications_none), selectedIcon: Icon(Icons.notifications), label: 'Incidents'),
-                NavigationDestination(icon: Icon(Icons.info_outline), selectedIcon: Icon(Icons.info), label: 'About'),
-              ],
-            ),
-    );
-  }
+  return Scaffold(
+    body: IndexedStack(index: _currentIndex, children: screens),
+    bottomNavigationBar: widget.isFullscreen 
+        ? null 
+        : NavigationBar(
+            selectedIndex: _currentIndex,
+            backgroundColor: isDark ? const Color(0xFF161625) : Colors.white,
+            onDestinationSelected: (index) => setState(() => _currentIndex = index),
+            destinations: const [
+              NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Map'),
+              NavigationDestination(icon: Icon(Icons.notifications_none), selectedIcon: Icon(Icons.notifications), label: 'Incidents'),
+              NavigationDestination(icon: Icon(Icons.info_outline), selectedIcon: Icon(Icons.info), label: 'About'),
+            ],
+          ),
+  );
+}
 }

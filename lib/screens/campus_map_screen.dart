@@ -4,11 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+//import 'package:http/http.dart' as http; // ✅ Added package for network uploads
 import '../models/weather_data.dart';
 import '../widgets/weather_overlay.dart';
 import 'main_navigation_screen.dart';
 import 'dart:convert'; // Required for jsonEncode()
 import 'package:shared_preferences/shared_preferences.dart'; // Required for disk writes
+import '../services/cloudinary_service.dart';
+
+// 🔑 CLOUDINARY CONFIGURATION AREA
+const String cloudinaryCloudName = "dx4dtwvz"; // ✅ Extracted from your screenshot
+const String cloudinaryUploadPreset = "jascare_preset"; // 👈 IMPORTANT: Replace this string with your Unsigned Preset Name from Cloudinary Settings > Upload > Upload presets
 
 class CampusMapScreen extends StatefulWidget {
   final String currentWeather;
@@ -47,7 +53,8 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
   String _addressTextDisplay = "Locating device... GPS data auto-assigned";
   
   String _selectedCategory = "Crime"; 
-  bool _isMapLocationLayerReady = false; // Forcing middle dot drawing verification flag
+  bool _isMapLocationLayerReady = false; 
+  bool _isUploading = false; // ✅ Added upload progress state indicator tracking flag
 
   @override
   void initState() {
@@ -87,7 +94,6 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
       return;
     }
 
-    // Explicitly toggle state once permissions check out cleanly to activate native location canvas layers
     setState(() {
       _isMapLocationLayerReady = true;
     });
@@ -182,13 +188,30 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
     }
   }
 
-  // 1. Added 'async' keyword so the app can wait for the storage to save
+  // ✅ CLOUDINARY UPLOAD PIPELINE FUNCTION
+  
+
   Future<void> _submitIncidentForm() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill in the incident title"), backgroundColor: Colors.red)
       );
       return;
+    }
+
+    // Toggle loading states
+    setState(() => _isUploading = true);
+    String? finalCloudinaryUrl;
+
+    if (_attachedImage != null) {
+      // 🔄 CALL THE LOCAL UPLOAD METHOD: Route through the local Cloudinary upload pipeline
+      finalCloudinaryUrl = await CloudinaryService.uploadIncidentImage(_attachedImage!.path);
+      
+      if (finalCloudinaryUrl == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Cloud storage upload dropped. Saving locally instead."), backgroundColor: Colors.orange)
+        );
+      }
     }
 
     final newReport = CustomIncident(
@@ -198,19 +221,14 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
       latitude: _userDeviceLocationPoint.latitude,
       longitude: _userDeviceLocationPoint.longitude,
       category: _selectedCategory, 
-      imagePath: _attachedImage?.path, 
+      imagePath: finalCloudinaryUrl ?? _attachedImage?.path, 
       isActive: true,
     );
 
-    // 2. Save to local storage first before updating the UI
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      // Get the existing list of strings or start fresh
       List<String> storedList = prefs.getStringList('local_incidents') ?? [];
       
-      // Convert our new object into a raw JSON string map
-      // (Make sure your CustomIncident model has a toJson() method implemented!)
       String jsonIncident = jsonEncode({
         'id': newReport.id,
         'title': newReport.title,
@@ -222,19 +240,23 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
         'isActive': newReport.isActive,
       });
       
-      // Add it to our local persistent list array and commit it to disk
       storedList.add(jsonIncident);
       await prefs.setStringList('local_incidents', storedList);
     } catch (e) {
       debugPrint("Failed to write persistence layer data: $e");
     }
 
-    // 3. Send it to the temporary running RAM state list normally
     widget.onAddIncident(newReport);
     
     _titleController.clear();
     _descController.clear();
-    _attachedImage = null;
+    
+    setState(() {
+      _attachedImage = null;
+      _isUploading = false;
+    });
+
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -291,7 +313,7 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                         Expanded(
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent.withAlpha(40), foregroundColor: Colors.blue),
-                            onPressed: () async {
+                            onPressed: _isUploading ? null : () async {
                               final file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
                               if (file != null) setModalState(() => _attachedImage = File(file.path));
                             },
@@ -303,7 +325,7 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                         Expanded(
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent.withAlpha(40), foregroundColor: Colors.purple),
-                            onPressed: () async {
+                            onPressed: _isUploading ? null : () async {
                               final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
                               if (file != null) setModalState(() => _attachedImage = File(file.path));
                             },
@@ -328,28 +350,37 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _titleController,
+                      enabled: !_isUploading,
                       style: TextStyle(color: textCol),
                       decoration: const InputDecoration(labelText: "Incident Title", border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _descController,
+                      enabled: !_isUploading,
                       style: TextStyle(color: textCol),
                       maxLines: 2,
                       decoration: const InputDecoration(labelText: "Description & Specific Details", border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 20),
+                    
+                    // ✅ Dynamic submit button turns into loading circle indicator during cloud operations
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52), backgroundColor: const Color(0xFF6366F1)),
-                      onPressed: _submitIncidentForm,
-                      child: const Text("Submit Report", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: _isUploading ? null : () async {
+                        setModalState(() => _isUploading = true);
+                        await _submitIncidentForm();
+                      },
+                      child: _isUploading
+                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                          : const Text("Submit Report", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 24),
                   ],
                 ),
               ),
             );
-          },
+          }
         );
       },
     );
@@ -369,7 +400,6 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 🗺️ Map view widget frame base
           Positioned.fill(
             child: Opacity(
               opacity: isDark ? 0.88 : 1.0,
@@ -377,8 +407,8 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                 initialCameraPosition: const CameraPosition(target: _perpustakaanJasin, zoom: 16.5),
                 markers: _buildMapMarkers(),
                 circles: _buildProximityCircles(), 
-                myLocationEnabled: _isMapLocationLayerReady, // Safe background rendering layer toggle logic
-                myLocationButtonEnabled: false, // Turned off native upper icon to hide duplication blocks
+                myLocationEnabled: _isMapLocationLayerReady, 
+                myLocationButtonEnabled: false, 
                 compassEnabled: false,
                 zoomControlsEnabled: false,
                 padding: const EdgeInsets.only(bottom: 125),
@@ -394,7 +424,6 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
             ),
           ),
           
-          // 🌌 Weather Layer forced to fit 100% full height screen space boundaries smoothly
           Positioned.fill(
             child: IgnorePointer(
               child: WeatherOverlay(condition: widget.currentWeather),
@@ -547,7 +576,6 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                     ),
                     const SizedBox(width: 8),
                     
-                    // 🕹️ Styled custom tracking target button safely inside bottom navigation row layout 
                     FloatingActionButton(
                       backgroundColor: const Color(0xFF6366F1),
                       foregroundColor: Colors.white,

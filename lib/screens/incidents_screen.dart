@@ -39,7 +39,7 @@ class IncidentsScreen extends StatelessWidget {
   }
 
   void _viewAttachedImage(BuildContext context, String? path) {
-    if (path == null) {
+    if (path == null || path.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("No photographic evidence attached to this incident record."))
       );
@@ -49,16 +49,66 @@ class IncidentsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF161625) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AppBar(title: const Text("Evidence Photo Preview"), backgroundColor: Colors.transparent, elevation: 0, leading: const CloseButton()),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(File(path), fit: BoxFit.contain),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: Text(
+                      "Evidence Photo Preview", 
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold, 
+                        fontSize: 16,
+                        color: isDark ? Colors.white : const Color(0xFF1A233D),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.black54),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                // ✅ Dynamic Router: Loads network link via Image.network or local file via Image.file safely
+                child: path.startsWith('http')
+                    ? Image.network(
+                        path,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Padding(
+                            padding: EdgeInsets.all(30.0),
+                            child: CircularProgressIndicator(color: Color(0xFF6366F1)),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20.0),
+                              child: Text("Error loading image from cloud storage.", style: TextStyle(color: Colors.redAccent)),
+                            ),
+                          );
+                        },
+                      )
+                    : Image.file(
+                        File(path),
+                        fit: BoxFit.contain,
+                      ),
+              ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -99,35 +149,34 @@ class IncidentsScreen extends StatelessWidget {
                   subtitle: Text(item.description, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
                 ),
                 const Divider(),
-                if (isActiveTab)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // ✅ Photographed evidence view option available across all tab states
+                    if (item.imagePath != null && item.imagePath!.isNotEmpty) ...[
                       TextButton.icon(
                         icon: const Icon(Icons.image, size: 18),
                         label: const Text("View Photo"),
                         onPressed: () => _viewAttachedImage(context, item.imagePath),
                       ),
                       const SizedBox(width: 8),
+                    ],
+                    if (isActiveTab)
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text("Mark Solved"),
                         onPressed: () => onSolve(item.id),
-                      ),
-                    ],
-                  )
-                else
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
+                      )
+                    else ...[
                       const Text("🟢 Resolved  ", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                         onPressed: () => _showDeleteConfirmation(context, item.id),
                       ),
                     ],
-                  ),
+                  ],
+                ),
               ],
             ),
           ),
