@@ -9,6 +9,7 @@ import '../widgets/weather_overlay.dart';
 import 'main_navigation_screen.dart';
 import 'dart:convert'; // Required for jsonEncode()
 import 'package:shared_preferences/shared_preferences.dart'; // Required for disk writes
+import '../services/api_service.dart';
 
 class CampusMapScreen extends StatefulWidget {
   final String currentWeather;
@@ -30,6 +31,7 @@ class CampusMapScreen extends StatefulWidget {
 
   @override
   State<CampusMapScreen> createState() => _CampusMapScreenState();
+
 }
 
 class _CampusMapScreenState extends State<CampusMapScreen> {
@@ -37,6 +39,7 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
   File? _attachedImage; 
   final ImagePicker _picker = ImagePicker();
   GoogleMapController? _mapController;
+  List<dynamic> _locations = [];
   StreamSubscription<Position>? _locationStreamSubscription;
 
   final TextEditingController _titleController = TextEditingController();
@@ -50,9 +53,25 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
   bool _isMapLocationLayerReady = false; // Forcing middle dot drawing verification flag
 
   @override
-  void initState() {
-    super.initState();
-    _startSmoothLocationStreaming();
+    void initState() {
+      super.initState();
+      _startSmoothLocationStreaming();
+      _loadLocations();
+    }
+
+    Future<void> _loadLocations() async {
+      final data = await ApiService.getLocations();
+
+      if (!mounted) return;
+
+      setState(() {
+        _locations = data;
+      });
+
+      print("========== LOCATIONS ==========");
+      print(data);
+      print("===============================");
+    
   }
 
   @override
@@ -142,22 +161,51 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
   }
 
   Set<Marker> _buildMapMarkers() {
-    Set<Marker> markers = {};
-    for (var incident in widget.incidentList) {
-      if (incident.isActive) {
-        double colorHue = incident.category == "Crime" ? BitmapDescriptor.hueViolet : BitmapDescriptor.hueOrange;
+      Set<Marker> markers = {};
+
+      // Incident markers
+      for (var incident in widget.incidentList) {
+        if (incident.isActive) {
+          double colorHue = incident.category == "Crime"
+              ? BitmapDescriptor.hueViolet
+              : BitmapDescriptor.hueOrange;
+
+          markers.add(
+            Marker(
+              markerId: MarkerId("incident_${incident.id}"),
+              position: LatLng(incident.latitude, incident.longitude),
+              icon: BitmapDescriptor.defaultMarkerWithHue(colorHue),
+              infoWindow: InfoWindow(
+                title: incident.title,
+                snippet: incident.description,
+              ),
+            ),
+          );
+        }
+      }
+
+      // Admin location markers from Laravel API
+      for (var location in _locations) {
+        final double lat = double.tryParse(location['latitude'].toString()) ?? 0.0;
+        final double lng = double.tryParse(location['longitude'].toString()) ?? 0.0;
+
+        if (lat == 0.0 || lng == 0.0) continue;
+
         markers.add(
           Marker(
-            markerId: MarkerId(incident.id),
-            position: LatLng(incident.latitude, incident.longitude),
-            icon: BitmapDescriptor.defaultMarkerWithHue(colorHue),
-            infoWindow: InfoWindow(title: incident.title, snippet: incident.description),
+            markerId: MarkerId("location_${location['id']}"),
+            position: LatLng(lat, lng),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            infoWindow: InfoWindow(
+              title: location['name'] ?? 'Campus Location',
+              snippet: location['type'] ?? 'Location',
+            ),
           ),
         );
       }
+
+      return markers;
     }
-    return markers;
-  }
 
   Set<Circle> _buildProximityCircles() {
     return {
