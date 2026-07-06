@@ -10,6 +10,8 @@ import '../widgets/weather_overlay.dart';
 import 'main_navigation_screen.dart';
 import 'dart:convert'; // Required for jsonEncode()
 import 'package:shared_preferences/shared_preferences.dart'; // Required for disk writes
+import '../services/api_service.dart';
+import '../services/cloudinary_service.dart';
 
 class CampusMapScreen extends StatefulWidget {
   final String currentWeather;
