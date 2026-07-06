@@ -25,6 +25,20 @@ class CustomIncident {
     this.imagePath,
     this.isActive = true,
   });
+
+  // Convert object to a Map for JSON encoding
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'latitude': latitude,
+      'longitude': longitude,
+      'category': category,
+      'imagePath': imagePath,
+      'isActive': isActive,
+    };
+  }
 }
 
 class MainNavigationScreen extends StatefulWidget {
@@ -69,23 +83,87 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     ),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadPersistedIncidents(); // Load the data the moment this screen turns on!
+  }
+
+  // 💾 NEW CENTRAL SAVE FUNCTION: Call this whenever the array updates
+  Future<void> _saveAllIncidentsToDisk() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> jsonList = _globalIncidents
+          .map((incident) => jsonEncode(incident.toMap()))
+          .toList();
+      await prefs.setStringList('local_incidents', jsonList);
+    } catch (e) {
+      debugPrint("Failed to save data sync update: $e");
+    }
+  }
+
+  // UPDATED: Now saves to storage after adding
   void _addIncident(CustomIncident incident) {
     setState(() {
       _globalIncidents.add(incident);
     });
+    _saveAllIncidentsToDisk(); // Update local disk file!
   }
 
+  // UPDATED: Now saves to storage after updating to solved
   void _markAsSolved(String id) {
     setState(() {
       final incident = _globalIncidents.firstWhere((item) => item.id == id);
       incident.isActive = false;
     });
+    _saveAllIncidentsToDisk(); // Update local disk file!
   }
 
+  // UPDATED: Now saves to storage after deleting completely
   void _permanentlyDelete(String id) {
     setState(() {
       _globalIncidents.removeWhere((item) => item.id == id);
     });
+    _saveAllIncidentsToDisk(); // Update local disk file!
+  }
+
+  Future<void> _loadPersistedIncidents() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      List<String> storedList = prefs.getStringList('local_incidents') ?? [];
+      
+      if (storedList.isNotEmpty) {
+        List<CustomIncident> loadedIncidents = [];
+        
+        for (String jsonStr in storedList) {
+          Map<String, dynamic> item = jsonDecode(jsonStr);
+          
+          // Avoid duplicating initial hardcoded items ('f1', 'f2') if they are read from disk
+          if (_globalIncidents.any((element) => element.id == item['id'])) {
+            continue;
+          }
+
+          loadedIncidents.add(
+            CustomIncident(
+              id: item['id'],
+              title: item['title'],
+              description: item['description'],
+              latitude: item['latitude'],
+              longitude: item['longitude'],
+              category: item['category'],
+              imagePath: item['imagePath'],
+              isActive: item['isActive'] ?? true,
+            ),
+          );
+        }
+        
+        setState(() {
+          _globalIncidents.addAll(loadedIncidents); 
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading persisted data: $e");
+    }
   }
 
   @override
@@ -126,47 +204,4 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             ),
     );
   }
-
-@override
-  void initState() {
-    super.initState();
-    _loadPersistedIncidents(); // 👈 Load the data the moment this screen turns on!
-  }
-
-  Future<void> _loadPersistedIncidents() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> storedList = prefs.getStringList('local_incidents') ?? [];
-      
-      if (storedList.isNotEmpty) {
-        List<CustomIncident> loadedIncidents = [];
-        
-        for (String jsonStr in storedList) {
-          Map<String, dynamic> item = jsonDecode(jsonStr);
-          
-          // Map the raw JSON keys back into your CustomIncident object model
-          loadedIncidents.add(
-            CustomIncident(
-              id: item['id'],
-              title: item['title'],
-              description: item['description'],
-              latitude: item['latitude'],
-              longitude: item['longitude'],
-              category: item['category'],
-              imagePath: item['imagePath'],
-              isActive: item['isActive'] ?? true,
-            ),
-          );
-        }
-        
-        setState(() {
-          // Merge your freshly loaded disk data into your active screen state list
-          _globalIncidents.addAll(loadedIncidents); 
-        });
-      }
-    } catch (e) {
-      debugPrint("Error loading persisted data: $e");
-    }
-  }
-
 }
