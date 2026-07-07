@@ -279,6 +279,15 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
 
     // 3. Send it to the temporary running RAM state list normally
     widget.onAddIncident(newReport);
+
+    await ApiService.submitReport(
+      username: "Student",
+      incident: _selectedCategory,
+      description: newReport.description,
+      latitude: newReport.latitude,
+      longitude: newReport.longitude,
+      imageUrl: null,
+    );
     
     _titleController.clear();
     _descController.clear();
