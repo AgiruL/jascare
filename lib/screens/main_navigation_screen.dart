@@ -4,6 +4,7 @@ import 'incidents_screen.dart';
 import 'about_screen.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 class CustomIncident {
   final String id;
@@ -86,7 +87,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPersistedIncidents(); // Load the data the moment this screen turns on!
+    _loadReportsFromLaravel();
+  }
+
+  Future<void> _loadReportsFromLaravel() async {
+    final reports = await ApiService.getReports();
+
+    final List<CustomIncident> apiIncidents = reports.map((item) {
+      return CustomIncident(
+        id: item['id'].toString(),
+        title: item['incident'] ?? 'Incident',
+        description: item['description'] ?? 'No notes',
+        latitude: double.tryParse(item['latitude'].toString()) ?? 0.0,
+        longitude: double.tryParse(item['longitude'].toString()) ?? 0.0,
+        category: item['incident'] ?? 'Crime',
+        imagePath: item['image_url'],
+        isActive: item['status'] == 'active',
+      );
+    }).toList();
+
+    setState(() {
+      _globalIncidents.clear();
+      _globalIncidents.addAll(apiIncidents);
+    });
   }
 
   // 💾 NEW CENTRAL SAVE FUNCTION: Call this whenever the array updates
@@ -199,7 +222,13 @@ Widget build(BuildContext context) {
         : NavigationBar(
             selectedIndex: _currentIndex,
             backgroundColor: isDark ? const Color(0xFF161625) : Colors.white,
-            onDestinationSelected: (index) => setState(() => _currentIndex = index),
+            onDestinationSelected: (index) {
+              setState(() => _currentIndex = index);
+
+              if (index == 1) {
+                _loadReportsFromLaravel();
+              }
+            },
             destinations: const [
               NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: 'Map'),
               NavigationDestination(icon: Icon(Icons.notifications_none), selectedIcon: Icon(Icons.notifications), label: 'Incidents'),

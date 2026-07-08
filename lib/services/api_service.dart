@@ -21,7 +21,31 @@ class ApiService {
     }
 
     return [];
+
   }
+
+  static Future<List<dynamic>> getReports() async {
+  try {
+    final response = await http.get(
+      Uri.parse("${AppConfig.baseUrl}/reports"),
+      headers: {
+        "Accept": "application/json",
+      },
+    );
+
+    print("GET REPORTS STATUS: ${response.statusCode}");
+    print("GET REPORTS BODY: ${response.body}");
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+
+    return [];
+  } catch (e) {
+    print("Get reports API error: $e");
+    return [];
+  }
+}
 
       static Future<bool> submitReport({
       required String username,

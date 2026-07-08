@@ -27,6 +27,9 @@ class CloudinaryService {
       
       if (response.statusCode == 200) {
         var parsedJson = jsonDecode(responseData);
+        print("CLOUDINARY URL:");
+        print(parsedJson['secure_url']);
+
         return parsedJson['secure_url'] as String?;
       } else {
         // Keeps the diagnostic loop tracking cleanly in your terminal windows

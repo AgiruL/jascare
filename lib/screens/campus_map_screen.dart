@@ -12,6 +12,7 @@ import 'dart:convert'; // Required for jsonEncode()
 import 'package:shared_preferences/shared_preferences.dart'; // Required for disk writes
 import '../services/api_service.dart';
 import '../services/cloudinary_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CampusMapScreen extends StatefulWidget {
   final String currentWeather;
@@ -292,13 +293,19 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
 
     widget.onAddIncident(newReport);
 
+    final user = FirebaseAuth.instance.currentUser;
+
+    final username = user?.displayName?.isNotEmpty == true
+        ? user!.displayName!
+        : (user?.email ?? "Guest");
+
     await ApiService.submitReport(
-      username: "Student",
+      username: username,
       incident: _selectedCategory,
       description: newReport.description,
       latitude: newReport.latitude,
       longitude: newReport.longitude,
-      imageUrl: null,
+      imageUrl: finalCloudinaryUrl,
     );
     
     _titleController.clear();
