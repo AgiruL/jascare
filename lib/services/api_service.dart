@@ -25,12 +25,17 @@ static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   static Future<List<dynamic>> getReports() async {
   try {
-    QuerySnapshot snapshot = await _db.collection('reports').get();
+      QuerySnapshot snapshot = await _db.collection('reports').get();
 
-    final List<dynamic> reportsList = snapshot.docs.map((doc) {
+      final List<dynamic> reportsList = snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
+        
         // Map dynamic active status flag values cleanly for the local UI layers
+        data['title'] = (data['title'] != null && data['title'].toString().isNotEmpty)
+            ? data['title']
+            : data['incident'];
+            
         data['status'] = data['isActive'] == true ? 'active' : 'solved';
         return data;
       }).toList();
@@ -38,6 +43,8 @@ static final FirebaseFirestore _db = FirebaseFirestore.instance;
       print("GET REPORTS STATUS: Success");
       print("GET REPORTS COUNT: ${reportsList.length}");
       return reportsList;
+      
+    // 👇 Make sure these closing brackets are included at the bottom:
     } catch (e) {
       print("Get reports API error: $e");
       return [];
@@ -46,6 +53,7 @@ static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
       static Future<bool> submitReport({
       required String username,
+      required String title,
       required String incident,
       required String description,
       required double latitude,
@@ -55,6 +63,7 @@ static final FirebaseFirestore _db = FirebaseFirestore.instance;
       try {
       await _db.collection('reports').add({
         "username": username,
+        "title": title,
         "incident": incident,
         "description": description,
         "latitude": latitude,
@@ -68,6 +77,36 @@ static final FirebaseFirestore _db = FirebaseFirestore.instance;
       return true;
     } catch (e) {
       print("Report API error: $e");
+      return false;
+    }
+  }
+
+  // ===============================
+  // MARK REPORT AS SOLVED IN CLOUD
+  // ===============================
+  static Future<bool> markReportAsSolved(String documentId) async {
+    try {
+      await _db.collection('reports').doc(documentId).update({
+        'isActive': false,
+      });
+      print("REPORT STATUS: Document $documentId marked as solved in Firestore");
+      return true;
+    } catch (e) {
+      print("Failed to update report status in Firestore: $e");
+      return false;
+    }
+  }
+
+  // ===============================
+  // DELETE INCIDENT FROM CLOUD
+  // ===============================
+  static Future<bool> deleteReport(String documentId) async {
+    try {
+      await _db.collection('reports').doc(documentId).delete();
+      print("REPORT STATUS: Document $documentId deleted from Firestore cleanly");
+      return true;
+    } catch (e) {
+      print("Failed to delete report document from Firestore: $e");
       return false;
     }
   }

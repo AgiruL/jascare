@@ -138,20 +138,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   // UPDATED: Now saves to storage after updating to solved
-  void _markAsSolved(String id) {
+  Future<void> _markAsSolved(String id) async {
     setState(() {
       final incident = _globalIncidents.firstWhere((item) => item.id == id);
       incident.isActive = false;
     });
     _saveAllIncidentsToDisk(); // Update local disk file!
+    await ApiService.markReportAsSolved(id);
   }
 
   // UPDATED: Now saves to storage after deleting completely
-  void _permanentlyDelete(String id) {
+  Future<void> _permanentlyDelete(String id) async {
     setState(() {
       _globalIncidents.removeWhere((item) => item.id == id);
     });
     _saveAllIncidentsToDisk(); // Update local disk file!
+    await ApiService.deleteReport(id);
   }
 
   Future<void> _loadPersistedIncidents() async {

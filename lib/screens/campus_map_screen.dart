@@ -301,6 +301,7 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
       // This is the most likely spot to hang/error out if the local server drops:
       await ApiService.submitReport(
         username: username,
+        title: _titleController.text.trim(),
         incident: _selectedCategory,
         description: newReport.description,
         latitude: newReport.latitude,
