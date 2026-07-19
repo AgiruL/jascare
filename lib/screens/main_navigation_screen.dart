@@ -100,7 +100,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final List<CustomIncident> apiIncidents = reports.map((item) {
       return CustomIncident(
         id: item['id'].toString(),
-        title: item['incident'] ?? 'Incident',
+        title: (item['title'] != null && item['title'].toString().isNotEmpty)
+            ? item['title'].toString()
+            : (item['incident'] ?? 'Incident').toString(),
         description: item['description'] ?? 'No notes',
         latitude: double.tryParse(item['latitude'].toString()) ?? 0.0,
         longitude: double.tryParse(item['longitude'].toString()) ?? 0.0,
