@@ -45,6 +45,7 @@ class _JasCareAppState extends State<JasCareApp> {
   }
 
   void _determineSolidWeather() {
+    if (_currentWeather == "rain") return;
     final now = DateTime.now();
     final double timeAsDouble = now.hour + (now.minute / 60.0);
 
@@ -93,11 +94,13 @@ class _JasCareAppState extends State<JasCareApp> {
       debugShowCheckedModeBanner: false,
       theme: _buildFigmaTheme(),
       // ✅ Enforces Login Screen first while passing down your persistent weather states!
-      home: LoginScreen(
-        currentWeather: _currentWeather,
-        isFullscreen: _isFullscreen,
-        onWeatherChanged: _changeWeather,
-        onToggleFullscreen: _toggleFullscreen,
+      home: Builder(
+        builder: (context) => LoginScreen(
+          currentWeather: _currentWeather,
+          isFullscreen: _isFullscreen,
+          onWeatherChanged: _changeWeather,
+          onToggleFullscreen: _toggleFullscreen,
+        ),
       ),
     );
   }

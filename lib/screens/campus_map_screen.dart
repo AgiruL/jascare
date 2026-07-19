@@ -471,9 +471,10 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                 myLocationButtonEnabled: false, 
                 compassEnabled: false,
                 zoomControlsEnabled: false,
-                padding: const EdgeInsets.only(bottom: 125),
+                padding: EdgeInsets.only(bottom: widget.isFullscreen ? 0 : 125),
                 onMapCreated: (GoogleMapController controller) {
                   _mapController = controller;
+                  
                   final now = DateTime.now();
                   final double timeAsDouble = now.hour + (now.minute / 60.0);
                   if (timeAsDouble >= 19.5 || timeAsDouble < 7.0 || widget.currentWeather == "rain") {
@@ -606,6 +607,8 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // 1. Add this line here to hide/show the stats row
+                if (!widget.isFullscreen)
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                   decoration: BoxDecoration(color: elementBgColor, borderRadius: BorderRadius.circular(30)),
@@ -618,6 +621,8 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                     ],
                   ),
                 ),
+                // 2. Add this line here so the spacing drops away too when hiding
+              if (!widget.isFullscreen)
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -649,7 +654,12 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                       backgroundColor: elementBgColor,
                       foregroundColor: textColor,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      onPressed: widget.onToggleFullscreen,
+                      onPressed: () {
+                        // 1. Fire the original parent logic method callback
+                        widget.onToggleFullscreen();
+                        
+                        
+                      },
                       child: Icon(widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded, size: 26),
                     ),
                   ],

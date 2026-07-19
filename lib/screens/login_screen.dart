@@ -54,11 +54,20 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => MainNavigationScreen(
-            currentWeather: widget.currentWeather,
-            isFullscreen: widget.isFullscreen,
-            onWeatherChanged: widget.onWeatherChanged,
-            onToggleFullscreen: widget.onToggleFullscreen,
+          builder: (context) => StatefulBuilder(
+            builder: (context, setModalState) {
+              return MainNavigationScreen(
+                currentWeather: widget.currentWeather,
+                isFullscreen: widget.isFullscreen,
+                onWeatherChanged: widget.onWeatherChanged,
+                onToggleFullscreen: () {
+                  // 1. Triggers the actual screen switch function at the root (main.dart)
+                  widget.onToggleFullscreen();
+                  // 2. Forces this view layout layer to refresh instantly
+                  setModalState(() {});
+                },
+              );
+            },
           ),
         ),
       );

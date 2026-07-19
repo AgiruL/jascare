@@ -29,65 +29,74 @@ class WeatherConfig {
     required this.timeline,
   });
 
-  static WeatherConfig getConfig(String condition) {
-    switch (condition) {
-      case "windy":
-        return const WeatherConfig(
-          headerLabel: "Gale Winds",
-          mainTemp: 28,
-          humidity: 62,
-          alertMessage: "💨 High winds detected — secure lightweight items and ride with care.",
-          timeline: [
-            WeatherTimelineItem(timeOffset: "-6h", label: "Sunny", temp: 32, icon: Icons.wb_sunny),
-            WeatherTimelineItem(timeOffset: "-3h", label: "Clear", temp: 30, icon: Icons.wb_cloudy_outlined),
-            WeatherTimelineItem(timeOffset: "Now", label: "Windy", temp: 28, icon: Icons.air),
-            WeatherTimelineItem(timeOffset: "+3h", label: "Cloudy", temp: 26, icon: Icons.cloud),
-            WeatherTimelineItem(timeOffset: "+6h", label: "Rain", temp: 24, icon: Icons.thunderstorm),
-          ],
-        );
-      case "rain":
-        return const WeatherConfig(
-          headerLabel: "Moderate rain",
-          mainTemp: 25,
-          humidity: 89,
-          alertMessage: "⚡ Rain detected — riders, get your coat/umbrella ready.",
-          timeline: [
-            WeatherTimelineItem(timeOffset: "-6h", label: "Cloudy", temp: 30, icon: Icons.cloud),
-            WeatherTimelineItem(timeOffset: "-3h", label: "Light rain", temp: 27, icon: Icons.grain),
-            WeatherTimelineItem(timeOffset: "Now", label: "Mod. Rain", temp: 25, icon: Icons.thunderstorm),
-            WeatherTimelineItem(timeOffset: "+3h", label: "Overcast", temp: 26, icon: Icons.cloud_queue),
-            WeatherTimelineItem(timeOffset: "+6h", label: "Clear", temp: 23, icon: Icons.dark_mode),
-          ],
-        );
-      case "night":
-        return const WeatherConfig(
-          headerLabel: "Clear night",
-          mainTemp: 23,
-          humidity: 72,
-          alertMessage: "🌙 Clear night — good visibility across campus fields.",
-          timeline: [
-            WeatherTimelineItem(timeOffset: "-6h", label: "Sunset", temp: 30, icon: Icons.wb_twilight),
-            WeatherTimelineItem(timeOffset: "-3h", label: "Overcast", temp: 26, icon: Icons.cloud),
-            WeatherTimelineItem(timeOffset: "Now", label: "Night", temp: 23, icon: Icons.nightlight_round),
-            WeatherTimelineItem(timeOffset: "+3h", label: "Cool", temp: 22, icon: Icons.brightness_3),
-            WeatherTimelineItem(timeOffset: "+6h", label: "Dawn", temp: 24, icon: Icons.wb_sunny_outlined),
-          ],
-        );
-      case "sunny":
-      default:
-        return const WeatherConfig(
-          headerLabel: "Bright sunshine",
-          mainTemp: 34,
-          humidity: 55,
-          alertMessage: "☀️ Clear skies — safe riding conditions verified.",
-          timeline: [
-            WeatherTimelineItem(timeOffset: "-6h", label: "Clear", temp: 28, icon: Icons.wb_sunny_outlined),
-            WeatherTimelineItem(timeOffset: "-3h", label: "Sunny", temp: 31, icon: Icons.wb_sunny),
-            WeatherTimelineItem(timeOffset: "Now", label: "Sunshine", temp: 34, icon: Icons.wb_sunny),
-            WeatherTimelineItem(timeOffset: "+3h", label: "Warm", temp: 32, icon: Icons.wb_sunny),
-            WeatherTimelineItem(timeOffset: "+6h", label: "Sunset", temp: 27, icon: Icons.wb_twilight),
-          ],
-        );
-    }
+  // Replace your WeatherConfig.getConfig method inside weather_data.dart with this version:
+
+static WeatherConfig getConfig(String condition) {
+  // Normalize the input string to handle common API response variants safely
+  final String checkCondition = condition.toLowerCase().trim();
+
+  // If the string contains the word 'rain' or 'drizzle', fall back automatically to the rain template
+  if (checkCondition.contains("rain") || checkCondition.contains("drizzle") || checkCondition.contains("thunderstorm")) {
+    return const WeatherConfig(
+      headerLabel: "Moderate rain",
+      mainTemp: 25,
+      humidity: 89,
+      alertMessage: "⚡ Rain detected — riders, get your coat/umbrella ready.",
+      timeline: [
+        WeatherTimelineItem(timeOffset: "-6h", label: "Cloudy", temp: 30, icon: Icons.cloud),
+        WeatherTimelineItem(timeOffset: "-3h", label: "Light rain", temp: 27, icon: Icons.grain),
+        WeatherTimelineItem(timeOffset: "Now", label: "Mod. Rain", temp: 25, icon: Icons.thunderstorm),
+        WeatherTimelineItem(timeOffset: "+3h", label: "Overcast", temp: 26, icon: Icons.cloud_queue),
+        WeatherTimelineItem(timeOffset: "+6h", label: "Clear", temp: 23, icon: Icons.dark_mode),
+      ],
+    );
   }
+
+  // Keep your exact original switch case setup for the other values
+  switch (checkCondition) {
+    case "windy":
+      return const WeatherConfig(
+        headerLabel: "Gale Winds",
+        mainTemp: 28,
+        humidity: 62,
+        alertMessage: "💨 High winds detected — secure lightweight items and ride with care.",
+        timeline: [
+          WeatherTimelineItem(timeOffset: "-6h", label: "Sunny", temp: 32, icon: Icons.wb_sunny),
+          WeatherTimelineItem(timeOffset: "-3h", label: "Clear", temp: 30, icon: Icons.wb_cloudy_outlined),
+          WeatherTimelineItem(timeOffset: "Now", label: "Windy", temp: 28, icon: Icons.air),
+          WeatherTimelineItem(timeOffset: "+3h", label: "Cloudy", temp: 26, icon: Icons.cloud),
+          WeatherTimelineItem(timeOffset: "+6h", label: "Rain", temp: 24, icon: Icons.thunderstorm),
+        ],
+      );
+    case "night":
+      return const WeatherConfig(
+        headerLabel: "Clear night",
+        mainTemp: 23,
+        humidity: 72,
+        alertMessage: "🌙 Clear night — good visibility across campus fields.",
+        timeline: [
+          WeatherTimelineItem(timeOffset: "-6h", label: "Sunset", temp: 30, icon: Icons.wb_twilight),
+          WeatherTimelineItem(timeOffset: "-3h", label: "Overcast", temp: 26, icon: Icons.cloud),
+          WeatherTimelineItem(timeOffset: "Now", label: "Night", temp: 23, icon: Icons.nightlight_round),
+          WeatherTimelineItem(timeOffset: "+3h", label: "Cool", temp: 22, icon: Icons.brightness_3),
+          WeatherTimelineItem(timeOffset: "+6h", label: "Dawn", temp: 24, icon: Icons.wb_sunny_outlined),
+        ],
+      );
+    case "sunny":
+    default:
+      return const WeatherConfig(
+        headerLabel: "Bright sunshine",
+        mainTemp: 34,
+        humidity: 55,
+        alertMessage: "☀️ Clear skies — safe riding conditions verified.",
+        timeline: [
+          WeatherTimelineItem(timeOffset: "-6h", label: "Clear", temp: 28, icon: Icons.wb_sunny_outlined),
+          WeatherTimelineItem(timeOffset: "-3h", label: "Sunny", temp: 31, icon: Icons.wb_sunny),
+          WeatherTimelineItem(timeOffset: "Now", label: "Sunshine", temp: 34, icon: Icons.wb_sunny),
+          WeatherTimelineItem(timeOffset: "+3h", label: "Warm", temp: 32, icon: Icons.wb_sunny),
+          WeatherTimelineItem(timeOffset: "+6h", label: "Sunset", temp: 27, icon: Icons.wb_twilight),
+        ],
+      );
+  }
+}
 }

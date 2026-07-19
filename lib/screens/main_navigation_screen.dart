@@ -63,6 +63,9 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
+// 1. ADD THIS LOCAL VARIABLE HERE
+  bool _localIsFullscreen = false;
+
   final List<CustomIncident> _globalIncidents = [
     CustomIncident(
       id: 'f1',
@@ -87,6 +90,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
+    _loadPersistedIncidents();
     _loadReportsFromLaravel();
   }
 
@@ -196,11 +200,15 @@ Widget build(BuildContext context) {
   // ✅ FIX: Pass the array reference directly instead of rebuilding new lists on every frame refresh tick
   final List<Widget> screens = [
     CampusMapScreen(
-      key: ValueKey(widget.isFullscreen),
+      key: ValueKey(_localIsFullscreen),
       currentWeather: widget.currentWeather,
-      isFullscreen: widget.isFullscreen,
+      isFullscreen: _localIsFullscreen,
       onWeatherChanged: widget.onWeatherChanged,
-      onToggleFullscreen: widget.onToggleFullscreen,
+      onToggleFullscreen: () {
+          setState(() {
+            _localIsFullscreen = !_localIsFullscreen;
+          });
+        },
       incidentList: _globalIncidents, 
       onAddIncident: _addIncident,
     ),
@@ -217,7 +225,7 @@ Widget build(BuildContext context) {
 
   return Scaffold(
     body: IndexedStack(index: _currentIndex, children: screens),
-    bottomNavigationBar: widget.isFullscreen 
+    bottomNavigationBar: _localIsFullscreen 
         ? null 
         : NavigationBar(
             selectedIndex: _currentIndex,
