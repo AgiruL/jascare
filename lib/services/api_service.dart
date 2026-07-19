@@ -1,51 +1,48 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../config/app_config.dart';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+
 
 class ApiService {
-
+static final FirebaseFirestore _db = FirebaseFirestore.instance;
   // ===============================
   // GET ALL LOCATIONS
   // ===============================
   static Future<List<dynamic>> getLocations() async {
 
-    final response = await http.get(
-      Uri.parse("${AppConfig.baseUrl}/locations"),
-      headers: {
-        "Accept": "application/json",
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+    try {
+      QuerySnapshot snapshot = await _db.collection('locations').get();
+      return snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id; 
+        return data;
+      }).toList();
+    } catch (e) {
+      debugPrint("Get locations Firestore error: $e");
+      return [];
     }
-
-    return [];
-
   }
 
   static Future<List<dynamic>> getReports() async {
   try {
-    final response = await http.get(
-      Uri.parse("${AppConfig.baseUrl}/reports"),
-      headers: {
-        "Accept": "application/json",
-      },
-    );
+    QuerySnapshot snapshot = await _db.collection('reports').get();
 
-    print("GET REPORTS STATUS: ${response.statusCode}");
-    print("GET REPORTS BODY: ${response.body}");
+    final List<dynamic> reportsList = snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        // Map dynamic active status flag values cleanly for the local UI layers
+        data['status'] = data['isActive'] == true ? 'active' : 'solved';
+        return data;
+      }).toList();
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      print("GET REPORTS STATUS: Success");
+      print("GET REPORTS COUNT: ${reportsList.length}");
+      return reportsList;
+    } catch (e) {
+      print("Get reports API error: $e");
+      return [];
     }
-
-    return [];
-  } catch (e) {
-    print("Get reports API error: $e");
-    return [];
   }
-}
 
       static Future<bool> submitReport({
       required String username,
@@ -56,30 +53,23 @@ class ApiService {
       String? imageUrl,
     }) async {
       try {
-        final response = await http.post(
-          Uri.parse("${AppConfig.baseUrl}/reports"),
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-          },
-          body: jsonEncode({
-            "username": username,
-            "incident": incident,
-            "description": description,
-            "latitude": latitude,
-            "longitude": longitude,
-            "image_url": imageUrl,
-          }),
-        );
+      await _db.collection('reports').add({
+        "username": username,
+        "incident": incident,
+        "description": description,
+        "latitude": latitude,
+        "longitude": longitude,
+        "image_url": imageUrl,
+        "isActive": true,
+        "createdAt": FieldValue.serverTimestamp(),
+      });
 
-        print("REPORT STATUS: ${response.statusCode}");
-        print("REPORT BODY: ${response.body}");
-
-        return response.statusCode == 201;
-      } catch (e) {
-        print("Report API error: $e");
-        return false;
-      }
+      print("REPORT STATUS: 201 Created (Saved to Firestore)");
+      return true;
+    } catch (e) {
+      print("Report API error: $e");
+      return false;
     }
+  }
 
 }

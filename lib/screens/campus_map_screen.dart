@@ -246,78 +246,94 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
 
     // Toggle loading states
     setState(() => _isUploading = true);
-    String? finalCloudinaryUrl;
+    try {
+      String? finalCloudinaryUrl;
 
-    if (_attachedImage != null) {
-      // 🔄 CALL THE LOCAL UPLOAD METHOD: Route through the local Cloudinary upload pipeline
-      finalCloudinaryUrl = await CloudinaryService.uploadIncidentImage(_attachedImage!.path);
+      if (_attachedImage != null) {
+        finalCloudinaryUrl = await CloudinaryService.uploadIncidentImage(_attachedImage!.path);
+        
+        if (finalCloudinaryUrl == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Cloud storage upload dropped. Saving locally instead."), backgroundColor: Colors.orange)
+          );
+        }
+      }
+
+      final newReport = CustomIncident(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: _titleController.text.trim(),
+        description: _descController.text.trim().isEmpty ? "No notes" : _descController.text.trim(),
+        latitude: _userDeviceLocationPoint.latitude,
+        longitude: _userDeviceLocationPoint.longitude,
+        category: _selectedCategory, 
+        imagePath: finalCloudinaryUrl ?? _attachedImage?.path, 
+        isActive: true,
+      );
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        List<String> storedList = prefs.getStringList('local_incidents') ?? [];
+        
+        String jsonIncident = jsonEncode({
+          'id': newReport.id,
+          'title': newReport.title,
+          'description': newReport.description,
+          'latitude': newReport.latitude,
+          'longitude': newReport.longitude,
+          'category': newReport.category,
+          'imagePath': newReport.imagePath,
+          'isActive': newReport.isActive,
+        });
+        
+        storedList.add(jsonIncident);
+        await prefs.setStringList('local_incidents', storedList);
+      } catch (e) {
+        debugPrint("Failed to write persistence layer data: $e");
+      }
+
+      widget.onAddIncident(newReport);
+
+      final user = FirebaseAuth.instance.currentUser;
+      final username = user?.displayName?.isNotEmpty == true
+          ? user!.displayName!
+          : (user?.email ?? "Guest");
+
+      // This is the most likely spot to hang/error out if the local server drops:
+      await ApiService.submitReport(
+        username: username,
+        incident: _selectedCategory,
+        description: newReport.description,
+        latitude: newReport.latitude,
+        longitude: newReport.longitude,
+        imageUrl: finalCloudinaryUrl,
+      );
       
-      if (finalCloudinaryUrl == null) {
+      _titleController.clear();
+      _descController.clear();
+
+    } catch (networkError) {
+      // Catch any background server or storage connection drop exceptions safely
+      debugPrint("Submission failed with error: $networkError");
+      
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cloud storage upload dropped. Saving locally instead."), backgroundColor: Colors.orange)
+          SnackBar(
+            content: Text("Server submission failed, but layout unlocked: $networkError"),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
-    }
-
-    final newReport = CustomIncident(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _titleController.text.trim(),
-      description: _descController.text.trim().isEmpty ? "No notes" : _descController.text.trim(),
-      latitude: _userDeviceLocationPoint.latitude,
-      longitude: _userDeviceLocationPoint.longitude,
-      category: _selectedCategory, 
-      imagePath: finalCloudinaryUrl ?? _attachedImage?.path, 
-      isActive: true,
-    );
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      List<String> storedList = prefs.getStringList('local_incidents') ?? [];
-      
-      String jsonIncident = jsonEncode({
-        'id': newReport.id,
-        'title': newReport.title,
-        'description': newReport.description,
-        'latitude': newReport.latitude,
-        'longitude': newReport.longitude,
-        'category': newReport.category,
-        'imagePath': newReport.imagePath,
-        'isActive': newReport.isActive,
+    } finally {
+      // ✅ This block is GUARANTEED to run no matter what, fixing the freeze forever
+      setState(() {
+        _attachedImage = null;
+        _isUploading = false;
       });
-      
-      storedList.add(jsonIncident);
-      await prefs.setStringList('local_incidents', storedList);
-    } catch (e) {
-      debugPrint("Failed to write persistence layer data: $e");
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
     }
-
-    widget.onAddIncident(newReport);
-
-    final user = FirebaseAuth.instance.currentUser;
-
-    final username = user?.displayName?.isNotEmpty == true
-        ? user!.displayName!
-        : (user?.email ?? "Guest");
-
-    await ApiService.submitReport(
-      username: username,
-      incident: _selectedCategory,
-      description: newReport.description,
-      latitude: newReport.latitude,
-      longitude: newReport.longitude,
-      imageUrl: finalCloudinaryUrl,
-    );
-    
-    _titleController.clear();
-    _descController.clear();
-    
-    setState(() {
-      _attachedImage = null;
-      _isUploading = false;
-    });
-
-    if (!mounted) return;
-    Navigator.pop(context);
   }
 
   void _showReportIncidentSheet() {
@@ -428,11 +444,25 @@ class _CampusMapScreenState extends State<CampusMapScreen> {
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(52), backgroundColor: const Color(0xFF6366F1)),
                       onPressed: _isUploading ? null : () async {
-                        setModalState(() => _isUploading = true);
+                        // 1. Turn on loading inside the modal view context
+                        setModalState(() {
+                          _isUploading = true;
+                        });
+                        
+                        // 2. Run the submission upload pipeline
                         await _submitIncidentForm();
+                        
+                        // 3. Explicitly reset the modal state right before popping so it doesn't get stuck
+                        setModalState(() {
+                          _isUploading = false;
+                        });
                       },
                       child: _isUploading
-                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                          ? const SizedBox(
+                              height: 24, 
+                              width: 24, 
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                            )
                           : const Text("Submit Report", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(height: 24),
